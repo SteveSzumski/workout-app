@@ -561,7 +561,7 @@ function showModal(title, msg, onConfirm, btnClass) {
   btn.className = btnClass || 'confirm';
   btn.textContent = 'Confirm';
   modalCallback = onConfirm;
-  btn.onclick = () => { closeModal(); if(modalCallback) modalCallback(); };
+  btn.onclick = () => { const cb = modalCallback; closeModal(); if(cb) cb(); };
   document.getElementById('modalOverlay').classList.add('show');
 }
 function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); modalCallback=null; }
