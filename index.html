@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gym">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>Workout Dashboard</title>
+<style>
+  /* ─── System font stack — zero external requests ─── */
+  :root {
+    --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", system-ui, sans-serif;
+    --font-mono: "SF Mono", "Menlo", "Consolas", "Liberation Mono", monospace;
+
+    --bg: #0a0a0a;
+    --surface: #141414;
+    --surface2: #1c1c1c;
+    --surface3: #242424;
+    --border: #2a2a2a;
+    --text: #e8e8e8;
+    --text-dim: #787878;
+    --text-muted: #505050;
+    --accent: #c8e6a0;
+    --accent-dim: #4a5a32;
+    --done: #2a3a1a;
+    --done-text: #8aaa5a;
+    --danger: #e06060;
+    --danger-bg: #3a1a1a;
+    --warn: #e0b050;
+    --warn-bg: #3a2e1a;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --safe-top: env(safe-area-inset-top, 20px);
+    --safe-bottom: env(safe-area-inset-bottom, 20px);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  body {
+    font-family: var(--font-body);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    padding: calc(var(--safe-top) + 12px) 14px calc(var(--safe-bottom) + 90px) 14px;
+    -webkit-user-select: none; user-select: none;
+    overscroll-behavior: none;
+  }
+
+  /* ── Header ── */
+  .header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; padding:0 2px; }
+  .header h1 { font-size:28px; font-weight:700; letter-spacing:-0.5px; }
+  .header h1 span { color:var(--accent); }
+  .header-actions { display:flex; gap:8px; }
+  .header-btn {
+    background:var(--surface2); border:1px solid var(--border); color:var(--text-dim);
+    font:500 12px var(--font-body); padding:8px 14px; border-radius:20px; cursor:pointer;
+    transition: all .15s;
+  }
+  .header-btn:active { background:var(--surface3); color:var(--text); transform:scale(.96); }
+  .header-btn.danger { color:var(--danger); border-color:#3a2020; }
+  .header-btn.danger:active { background:var(--danger-bg); }
+
+  /* ── Top Note ── */
+  .top-note {
+    background: var(--warn-bg); border:1px solid #4a3a1a; border-radius:var(--radius);
+    padding:12px 14px; margin-bottom:18px; position:relative;
+  }
+  .top-note textarea {
+    width:100%; background:none; border:none; color:var(--warn);
+    font:300 13px/1.5 var(--font-body);
+    resize:none; outline:none; min-height:20px;
+  }
+  .top-note-label {
+    font:600 10px var(--font-mono); color:#8a7040;
+    text-transform:uppercase; letter-spacing:1px; margin-bottom:6px;
+  }
+
+  /* ── Sections ── */
+  .section {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    margin-bottom:12px; overflow:hidden; transition: box-shadow .2s, opacity .2s;
+  }
+  .section.dragging { opacity:.5; box-shadow:0 0 0 2px var(--accent); }
+  .section.drag-over { box-shadow:0 -3px 0 0 var(--accent); }
+
+  .section-header {
+    display:flex; align-items:center; padding:14px 14px; gap:10px; cursor:pointer;
+    position:relative;
+  }
+  .section-header .drag-handle {
+    color:var(--text-muted); font-size:16px; cursor:grab; padding:4px;
+    touch-action:none;
+  }
+  .section-header .drag-handle:active { cursor:grabbing; }
+  .section-title {
+    flex:1; font-weight:700; font-size:15px; text-transform:uppercase; letter-spacing:1px;
+  }
+  .section-count {
+    font:600 11px var(--font-mono); color:var(--text-muted);
+    background:var(--surface3); padding:3px 8px; border-radius:10px;
+  }
+  .section-count.all-done { background:var(--done); color:var(--done-text); }
+  .section-chevron { color:var(--text-muted); transition:transform .25s; font-size:14px; }
+  .section.collapsed .section-chevron { transform:rotate(-90deg); }
+  .section-body { padding:0 10px 10px; }
+  .section.collapsed .section-body { display:none; }
+
+  /* ── Exercise Row ── */
+  .exercise {
+    display:flex; align-items:center; gap:8px; padding:10px 8px;
+    border-radius:var(--radius-sm); margin-bottom:4px; transition:background .15s;
+    position:relative;
+  }
+  .exercise.done { background:var(--done); }
+  .exercise .check-btn {
+    width:28px; height:28px; border-radius:50%; border:2px solid var(--border);
+    background:none; color:transparent; cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:14px;
+    transition: all .15s;
+  }
+  .exercise.done .check-btn {
+    border-color:var(--accent-dim); background:var(--accent-dim); color:var(--accent);
+  }
+  .exercise-info { flex:1; min-width:0; }
+  .exercise-name {
+    font:500 14px var(--font-body); color:var(--text); background:none; border:none;
+    width:100%; outline:none; padding:2px 0;
+  }
+  .exercise.done .exercise-name {
+    color:var(--done-text); text-decoration:line-through; text-decoration-color:var(--accent-dim);
+  }
+  .exercise-details { display:flex; gap:4px; flex-wrap:wrap; margin-top:4px; align-items:center; }
+  .exercise-chip {
+    display:inline-flex; align-items:center; gap:3px; background:var(--surface3);
+    border:1px solid var(--border); border-radius:6px; padding:3px 6px;
+    font:400 12px var(--font-mono); color:var(--text-dim);
+  }
+  .exercise-chip input {
+    background:none; border:none; color:var(--accent); font:600 12px var(--font-mono);
+    width:36px; text-align:center; outline:none; padding:0;
+  }
+  .exercise-chip input:focus { background:var(--surface2); border-radius:3px; }
+  .exercise-chip label { font-size:10px; color:var(--text-muted); text-transform:uppercase; }
+  .exercise-note {
+    font:italic 300 12px var(--font-body); color:var(--warn); background:none;
+    border:none; width:100%; outline:none; margin-top:4px; padding:2px 0;
+  }
+  .exercise-note::placeholder { color:var(--text-muted); font-style:italic; }
+  .exercise-remove {
+    background:none; border:none; color:var(--text-muted); cursor:pointer;
+    font-size:16px; padding:6px; border-radius:50%; flex-shrink:0; transition:all .15s;
+  }
+  .exercise-remove:active { color:var(--danger); background:var(--danger-bg); }
+
+  /* ── Add Exercise Button ── */
+  .add-exercise-btn {
+    width:100%; padding:10px; background:var(--surface2); border:1px dashed var(--border);
+    border-radius:var(--radius-sm); color:var(--text-muted); font:500 13px var(--font-body);
+    cursor:pointer; transition: all .15s; margin-top:4px;
+  }
+  .add-exercise-btn:active { background:var(--surface3); color:var(--text-dim); border-color:var(--text-muted); }
+
+  .blocked-badge {
+    display:inline-flex; align-items:center; gap:3px;
+    font:600 10px var(--font-mono); color:var(--danger);
+    background:var(--danger-bg); padding:2px 7px; border-radius:10px; margin-left:4px;
+  }
+
+  /* ── Bottom Bar ── */
+  .bottom-bar {
+    position:fixed; bottom:0; left:0; right:0;
+    background:linear-gradient(to top, var(--bg) 60%, transparent);
+    padding: 20px 16px calc(var(--safe-bottom) + 12px);
+    display:flex; gap:10px; justify-content:center;
+  }
+  .bottom-btn {
+    flex:1; max-width:200px; padding:14px; border-radius:12px;
+    font:600 14px var(--font-body); cursor:pointer; border:none;
+    transition: all .15s; text-align:center;
+  }
+  .bottom-btn:active { transform:scale(.96); }
+  .bottom-btn.primary { background:var(--accent); color:#0a0a0a; }
+  .bottom-btn.secondary { background:var(--surface2); color:var(--text-dim); border:1px solid var(--border); }
+
+  /* ── Session banner ── */
+  .session-banner {
+    background:var(--done); border:1px solid var(--accent-dim); border-radius:var(--radius);
+    padding:12px 14px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .session-banner .info { font:500 13px var(--font-body); color:var(--done-text); }
+  .session-banner .info strong { color:var(--accent); font-weight:700; }
+
+  @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  .section { animation: fadeIn .3s ease both; }
+  .section:nth-child(2){animation-delay:.04s} .section:nth-child(3){animation-delay:.08s}
+  .section:nth-child(4){animation-delay:.12s} .section:nth-child(5){animation-delay:.16s}
+  .section:nth-child(6){animation-delay:.2s} .section:nth-child(7){animation-delay:.24s}
+  .section:nth-child(8){animation-delay:.28s}
+
+  /* ── Confirm Modal ── */
+  .modal-overlay {
+    position:fixed; inset:0; background:rgba(0,0,0,.7); display:none;
+    align-items:center; justify-content:center; z-index:100; padding:20px;
+  }
+  .modal-overlay.show { display:flex; }
+  .modal {
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px; max-width:320px; width:100%; text-align:center;
+  }
+  .modal h3 { font-size:17px; margin-bottom:8px; }
+  .modal p { font-size:13px; color:var(--text-dim); margin-bottom:20px; line-height:1.5; }
+  .modal-actions { display:flex; gap:10px; }
+  .modal-actions button {
+    flex:1; padding:12px; border-radius:10px; font:600 14px var(--font-body);
+    cursor:pointer; border:none; transition:all .15s;
+  }
+  .modal-actions button:active { transform:scale(.96); }
+  .modal-actions .cancel { background:var(--surface3); color:var(--text-dim); }
+  .modal-actions .confirm { background:var(--danger); color:#fff; }
+  .modal-actions .confirm-ok { background:var(--accent); color:#0a0a0a; }
+
+  ::-webkit-scrollbar { width:0; }
+  input, textarea { -webkit-user-select:text; user-select:text; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>💪 <span>Workout</span></h1>
+  <div class="header-actions">
+    <button class="header-btn" onclick="expandAll()">Expand All</button>
+    <button class="header-btn" onclick="collapseAll()">Collapse All</button>
+  </div>
+</div>
+
+<div class="top-note">
+  <div class="top-note-label">📌 Session Note</div>
+  <textarea id="topNote" oninput="autoGrow(this); saveData();" rows="1"></textarea>
+</div>
+
+<div id="sessionBanner" class="session-banner" style="display:none">
+  <div class="info">Session: <strong id="sessionCount">0</strong> / <span id="sessionTotal">0</span> done</div>
+  <button class="header-btn danger" onclick="confirmClearSession()">Clear Session</button>
+</div>
+
+<div id="sectionsContainer"></div>
+
+<div class="bottom-bar">
+  <button class="bottom-btn secondary" onclick="confirmClearSession()">Clear Session</button>
+  <button class="bottom-btn primary" onclick="confirmResetAll()">Reset All Data</button>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle"></h3>
+    <p id="modalMsg"></p>
+    <div class="modal-actions">
+      <button class="cancel" onclick="closeModal()">Cancel</button>
+      <button id="modalConfirmBtn" class="confirm" onclick="">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═════════════════════════════════════════════
+//  DEFAULT DATA (parsed from workout.md)
+// ═════════════════════════════════════════════
+const DEFAULT_DATA = {
+  topNote: "3/7 - consider incrementing depending on feel of each muscle group, if there are no notes.",
+  sections: [
+    {
+      id:"arms", title:"Arms", collapsed:false,
+      exercises:[
+        {id:"a1",name:"Warmup",sets:"",weight:"",reps:"",note:"",done:false,blocked:false},
+        {id:"a2",name:"Dumbbell Bicep Curls",sets:"3",weight:"22.5",reps:"10",note:"",done:false,blocked:false},
+        {id:"a3",name:"Seated Bicep Curl Machine",sets:"3",weight:"",reps:"10",note:"",done:false,blocked:false},
+        {id:"a4",name:"Sitting Tricep Machine Push Downs",sets:"5",weight:"50",reps:"10",note:"",done:false,blocked:false},
+        {id:"a5",name:"Seated Tri Extension Pull Downs",sets:"3",weight:"",reps:"10",note:"",done:false,blocked:false},
+      ]
+    },
+    {
+      id:"shoulders", title:"Shoulders", collapsed:false,
+      exercises:[
+        {id:"s1",name:"Warmup",sets:"",weight:"",reps:"",note:"",done:false,blocked:false},
+        {id:"s2",name:"Dumbbell Overhead Press",sets:"3",weight:"17.5",reps:"10",note:"OR barbell 35lb overhead press",done:false,blocked:false},
+        {id:"s3",name:"Seated Dumbbell Raises (Fwd + Side)",sets:"3",weight:"5",reps:"10",note:"🚨 Wait until shoulder press ≥ 20lb/side & 1 week no pain",done:false,blocked:true},
+      ]
+    },
+    {
+      id:"chest", title:"Chest", collapsed:false,
+      exercises:[
+        {id:"c1",name:"Bench Press",sets:"",weight:"",reps:"",note:"",done:false,blocked:false},
+        {id:"c2",name:"Pec Fly Machine",sets:"3",weight:"50",reps:"10",note:"",done:false,blocked:false},
+      ]
+    },
+    {
+      id:"back", title:"Back", collapsed:false,
+      exercises:[
+        {id:"b1",name:"Reverse Flies",sets:"3",weight:"",reps:"10",note:"",done:false,blocked:false},
+        {id:"b2",name:"Seated Pull Down",sets:"3",weight:"",reps:"10",note:"",done:false,blocked:false},
+      ]
+    },
+    {
+      id:"core", title:"Core", collapsed:false,
+      exercises:[
+        {id:"co1",name:"Bridges",sets:"1",weight:"25",reps:"30",note:"25lb plate",done:false,blocked:false},
+        {id:"co2",name:"Sit Ups",sets:"1",weight:"",reps:"30",note:"",done:false,blocked:false},
+        {id:"co3",name:"Bicycle Sit Ups",sets:"1",weight:"",reps:"12",note:"",done:false,blocked:false},
+        {id:"co4",name:"Overhead Scissors",sets:"1",weight:"",reps:"12",note:"",done:false,blocked:false},
+        {id:"co5",name:"Side Scissors",sets:"1",weight:"",reps:"20",note:"",done:false,blocked:false},
+        {id:"co6",name:"Plank",sets:"1",weight:"",reps:"60s",note:"",done:false,blocked:false},
+        {id:"co7",name:"Boat Pose",sets:"1",weight:"",reps:"60s",note:"",done:false,blocked:false},
+        {id:"co8",name:"Weighted Boat Twists",sets:"1",weight:"",reps:"20",note:"🚨 Wait 1 week of back exercises & no pain",done:false,blocked:true},
+        {id:"co9",name:"Weighted Boat Crunches",sets:"1",weight:"",reps:"20",note:"🚨 Wait 1 week of twists & no wrist pain",done:false,blocked:true},
+      ]
+    },
+    {
+      id:"stretches", title:"Stretches", collapsed:false,
+      exercises:[
+        {id:"st1",name:"Side to Side Knee Rolls",sets:"1",weight:"",reps:"10",note:"",done:false,blocked:false},
+        {id:"st2",name:"Clamshells",sets:"1",weight:"",reps:"30 each",note:"",done:false,blocked:false},
+        {id:"st3",name:"Figure 4",sets:"1",weight:"",reps:"30s each",note:"",done:false,blocked:false},
+        {id:"st4",name:"Figure 4 Forward Fold",sets:"1",weight:"",reps:"30s each",note:"",done:false,blocked:false},
+      ]
+    },
+    {
+      id:"sauna", title:"Sauna & Cardio", collapsed:false,
+      exercises:[
+        {id:"sa1",name:"Sauna",sets:"1",weight:"",reps:"15 min",note:"",done:false,blocked:false},
+        {id:"sa2",name:"Bike",sets:"",weight:"",reps:"0",note:"🚨 Post-op — on hold",done:false,blocked:true},
+        {id:"sa3",name:"Row",sets:"",weight:"",reps:"0",note:"🚨 Post-op — on hold",done:false,blocked:true},
+        {id:"sa4",name:"Swim",sets:"",weight:"",reps:"0",note:"🚨 Post-op — on hold",done:false,blocked:true},
+      ]
+    },
+    {
+      id:"legs", title:"Legs", collapsed:false,
+      exercises:[
+        {id:"l1",name:"Warmup",sets:"",weight:"",reps:"",note:"🚨",done:false,blocked:true},
+        {id:"l2",name:"Leg Curl",sets:"4",weight:"80",reps:"10",note:"🚨",done:false,blocked:true},
+        {id:"l3",name:"Quad Raises / Leg Extensions",sets:"5",weight:"65",reps:"10",note:"🚨",done:false,blocked:true},
+      ]
+    },
+  ]
+};
+
+// ═════════════════════════════════════════════
+//  STATE
+// ═════════════════════════════════════════════
+let data;
+
+function loadData() {
+  try {
+    const saved = localStorage.getItem('workout_data_v2');
+    if (saved) {
+      data = JSON.parse(saved);
+      data.sections.forEach(s => s.exercises.forEach(e => {
+        if (e.blocked === undefined) e.blocked = false;
+        if (e.note === undefined) e.note = '';
+      }));
+    } else {
+      data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    }
+  } catch(e) {
+    data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+}
+
+function saveData() {
+  data.topNote = document.getElementById('topNote').value;
+  localStorage.setItem('workout_data_v2', JSON.stringify(data));
+  updateSessionBanner();
+}
+
+function uid() { return 'ex_' + Date.now() + '_' + Math.random().toString(36).substr(2,5); }
+
+// ═════════════════════════════════════════════
+//  RENDER
+// ═════════════════════════════════════════════
+function render() {
+  const noteEl = document.getElementById('topNote');
+  noteEl.value = data.topNote;
+  autoGrow(noteEl);
+
+  const container = document.getElementById('sectionsContainer');
+  container.innerHTML = '';
+
+  data.sections.forEach((section, sIdx) => {
+    const doneCount = section.exercises.filter(e => e.done).length;
+    const total = section.exercises.length;
+    const allDone = total > 0 && doneCount === total;
+
+    const div = document.createElement('div');
+    div.className = 'section' + (section.collapsed ? ' collapsed' : '');
+    div.dataset.idx = sIdx;
+
+    div.innerHTML = `
+      <div class="section-header" onclick="toggleSection(${sIdx})">
+        <span class="drag-handle" ontouchstart="startDrag(event,${sIdx})" onmousedown="startDrag(event,${sIdx})">⠿</span>
+        <span class="section-title">${esc(section.title)}</span>
+        <span class="section-count ${allDone?'all-done':''}">${doneCount}/${total}</span>
+        <span class="section-chevron">▾</span>
+      </div>
+      <div class="section-body">
+        ${section.exercises.map((ex, eIdx) => renderExercise(sIdx, eIdx, ex)).join('')}
+        <button class="add-exercise-btn" onclick="event.stopPropagation(); addExercise(${sIdx})">+ Add Exercise</button>
+      </div>
+    `;
+    container.appendChild(div);
+  });
+
+  updateSessionBanner();
+}
+
+function renderExercise(sIdx, eIdx, ex) {
+  return `
+    <div class="exercise ${ex.done?'done':''}" onclick="toggleDone(${sIdx},${eIdx})">
+      <button class="check-btn" onclick="event.stopPropagation(); toggleDone(${sIdx},${eIdx})">✓</button>
+      <div class="exercise-info" onclick="event.stopPropagation()">
+        <input class="exercise-name" type="text" value="${esc(ex.name)}"
+          onchange="updateField(${sIdx},${eIdx},'name',this.value)"
+          onclick="event.stopPropagation(); this.focus();">
+        <div class="exercise-details">
+          <span class="exercise-chip"><label>Sets</label>
+            <input type="text" inputmode="numeric" value="${esc(ex.sets)}" placeholder="—"
+              onchange="updateField(${sIdx},${eIdx},'sets',this.value)"
+              onclick="event.stopPropagation(); this.select();">
+          </span>
+          <span class="exercise-chip"><label>Wt</label>
+            <input type="text" inputmode="decimal" value="${esc(ex.weight)}" placeholder="—"
+              onchange="updateField(${sIdx},${eIdx},'weight',this.value)"
+              onclick="event.stopPropagation(); this.select();">
+          </span>
+          <span class="exercise-chip"><label>Reps</label>
+            <input type="text" value="${esc(ex.reps)}" placeholder="—"
+              onchange="updateField(${sIdx},${eIdx},'reps',this.value)"
+              onclick="event.stopPropagation(); this.select();">
+          </span>
+          ${ex.blocked ? '<span class="blocked-badge">🚨 HOLD</span>' : ''}
+        </div>
+        <input class="exercise-note" type="text" value="${esc(ex.note)}" placeholder="Add note…"
+          onchange="updateField(${sIdx},${eIdx},'note',this.value)"
+          onclick="event.stopPropagation(); this.focus();">
+      </div>
+      <button class="exercise-remove" onclick="event.stopPropagation(); removeExercise(${sIdx},${eIdx})" title="Remove">✕</button>
+    </div>`;
+}
+
+// ═════════════════════════════════════════════
+//  ACTIONS
+// ═════════════════════════════════════════════
+function toggleSection(sIdx) { data.sections[sIdx].collapsed = !data.sections[sIdx].collapsed; saveData(); render(); }
+function expandAll() { data.sections.forEach(s => s.collapsed = false); saveData(); render(); }
+function collapseAll() { data.sections.forEach(s => s.collapsed = true); saveData(); render(); }
+function toggleDone(sIdx, eIdx) { data.sections[sIdx].exercises[eIdx].done = !data.sections[sIdx].exercises[eIdx].done; saveData(); render(); }
+function updateField(sIdx, eIdx, field, value) { data.sections[sIdx].exercises[eIdx][field] = value; saveData(); }
+
+function addExercise(sIdx) {
+  data.sections[sIdx].exercises.push({ id:uid(), name:"New Exercise", sets:"3", weight:"", reps:"10", note:"", done:false, blocked:false });
+  data.sections[sIdx].collapsed = false;
+  saveData(); render();
+  setTimeout(() => {
+    const body = document.querySelectorAll('.section')[sIdx]?.querySelector('.section-body');
+    const names = body?.querySelectorAll('.exercise-name');
+    if (names?.length) { names[names.length-1].focus(); names[names.length-1].select(); }
+  }, 50);
+}
+
+function removeExercise(sIdx, eIdx) {
+  const name = data.sections[sIdx].exercises[eIdx].name;
+  showModal('Remove Exercise', `Remove "${name}" from ${data.sections[sIdx].title}?`, () => {
+    data.sections[sIdx].exercises.splice(eIdx, 1); saveData(); render();
+  });
+}
+
+function clearSession() { data.sections.forEach(s => s.exercises.forEach(e => e.done = false)); saveData(); render(); }
+
+function confirmClearSession() {
+  showModal('Clear Session', 'Reset all exercises to unchecked? Your weights, reps, and exercise data will be preserved.', clearSession, 'confirm-ok');
+}
+
+function confirmResetAll() {
+  showModal('Reset All Data', 'This will erase all customizations and restore the original workout. Cannot be undone.', () => {
+    localStorage.removeItem('workout_data_v2');
+    data = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    saveData(); render();
+  });
+}
+
+function updateSessionBanner() {
+  let total=0, done=0;
+  data.sections.forEach(s => s.exercises.forEach(e => { total++; if(e.done) done++; }));
+  const banner = document.getElementById('sessionBanner');
+  if (done > 0) {
+    banner.style.display = 'flex';
+    document.getElementById('sessionCount').textContent = done;
+    document.getElementById('sessionTotal').textContent = total;
+  } else { banner.style.display = 'none'; }
+}
+
+// ═════════════════════════════════════════════
+//  DRAG & DROP (touch + mouse)
+// ═════════════════════════════════════════════
+let dragEl=null, dragIdx=null;
+
+function startDrag(e, idx) {
+  e.stopPropagation(); e.preventDefault();
+  dragIdx = idx;
+  dragEl = document.querySelectorAll('.section')[idx];
+  dragEl.classList.add('dragging');
+  document.addEventListener('touchmove', onDragMove, {passive:false});
+  document.addEventListener('touchend', onDragEnd);
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+}
+
+function onDragMove(e) {
+  e.preventDefault();
+  const y = (e.touches ? e.touches[0] : e).clientY;
+  document.querySelectorAll('.section').forEach((s, i) => {
+    if (i === dragIdx) return;
+    const r = s.getBoundingClientRect();
+    s.classList.toggle('drag-over', y < r.top + r.height/2 && y > r.top - 20 && y < r.bottom + 20);
+  });
+}
+
+function onDragEnd(e) {
+  document.removeEventListener('touchmove', onDragMove);
+  document.removeEventListener('touchend', onDragEnd);
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  const y = (e.changedTouches ? e.changedTouches[0] : e).clientY;
+  let targetIdx = dragIdx;
+  document.querySelectorAll('.section').forEach((s, i) => {
+    s.classList.remove('drag-over');
+    if (i === dragIdx) return;
+    const r = s.getBoundingClientRect();
+    if (y < r.top + r.height/2 && y > r.top - 30) targetIdx = i;
+  });
+  if (dragEl) dragEl.classList.remove('dragging');
+  if (targetIdx !== dragIdx && targetIdx >= 0 && targetIdx < data.sections.length) {
+    const [moved] = data.sections.splice(dragIdx, 1);
+    data.sections.splice(targetIdx, 0, moved);
+    saveData(); render();
+  }
+  dragEl=null; dragIdx=null;
+}
+
+// ═════════════════════════════════════════════
+//  MODAL
+// ═════════════════════════════════════════════
+let modalCallback = null;
+function showModal(title, msg, onConfirm, btnClass) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalMsg').textContent = msg;
+  const btn = document.getElementById('modalConfirmBtn');
+  btn.className = btnClass || 'confirm';
+  btn.textContent = 'Confirm';
+  modalCallback = onConfirm;
+  btn.onclick = () => { closeModal(); if(modalCallback) modalCallback(); };
+  document.getElementById('modalOverlay').classList.add('show');
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('show'); modalCallback=null; }
+
+// ═════════════════════════════════════════════
+//  UTILS
+// ═════════════════════════════════════════════
+function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
+function autoGrow(el) { el.style.height='auto'; el.style.height=el.scrollHeight+'px'; }
+
+// ═════════════════════════════════════════════
+//  SERVICE WORKER REGISTRATION
+// ═════════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+// ═════════════════════════════════════════════
+//  INIT
+// ═════════════════════════════════════════════
+loadData();
+render();
+</script>
+</body>
+</html>
