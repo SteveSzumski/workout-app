@@ -46,7 +46,7 @@
     background: var(--bg);
     color: var(--text);
     min-height: 100dvh;
-    padding: calc(var(--safe-top) + 12px) 14px calc(var(--safe-bottom) + 90px) 14px;
+    padding: calc(var(--safe-top) + 12px) 14px calc(var(--safe-bottom) + 150px) 14px;
     -webkit-user-select: none; user-select: none;
     overscroll-behavior: none;
   }
@@ -176,10 +176,11 @@
     position:fixed; bottom:0; left:0; right:0;
     background:linear-gradient(to top, var(--bg) 60%, transparent);
     padding: 20px 16px calc(var(--safe-bottom) + 12px);
-    display:flex; gap:10px; justify-content:center;
+    display:flex; flex-direction:column; gap:8px;
   }
+  .bottom-row { display:flex; gap:10px; }
   .bottom-btn {
-    flex:1; max-width:200px; padding:14px; border-radius:12px;
+    flex:1; padding:14px; border-radius:12px;
     font:600 14px var(--font-body); cursor:pointer; border:none;
     transition: all .15s; text-align:center;
   }
@@ -251,9 +252,16 @@
 <div id="sectionsContainer"></div>
 
 <div class="bottom-bar">
-  <button class="bottom-btn secondary" onclick="confirmClearSession()">Clear Session</button>
-  <button class="bottom-btn primary" onclick="confirmResetAll()">Reset All Data</button>
+  <div class="bottom-row">
+    <button class="bottom-btn secondary" onclick="confirmClearSession()">Clear Session</button>
+    <button class="bottom-btn primary" onclick="confirmResetAll()">Reset All Data</button>
+  </div>
+  <div class="bottom-row">
+    <button class="bottom-btn secondary" onclick="exportData()">⬇ Export Backup</button>
+    <button class="bottom-btn secondary" onclick="importData()">⬆ Import Backup</button>
+  </div>
 </div>
+<input type="file" id="importFile" accept=".json" style="display:none" onchange="handleImport(event)">
 
 <div class="modal-overlay" id="modalOverlay">
   <div class="modal">
@@ -571,6 +579,45 @@ function closeModal() { document.getElementById('modalOverlay').classList.remove
 // ═════════════════════════════════════════════
 function esc(s) { return s ? s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : ''; }
 function autoGrow(el) { el.style.height='auto'; el.style.height=el.scrollHeight+'px'; }
+
+// ═════════════════════════════════════════════
+//  EXPORT / IMPORT
+// ═════════════════════════════════════════════
+function exportData() {
+  const json = JSON.stringify(data, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'workout-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData() {
+  document.getElementById('importFile').click();
+}
+
+function handleImport(e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (!parsed.sections || !Array.isArray(parsed.sections)) throw new Error();
+      showModal('Import Backup', `Replace all current data with "${file.name}"?`, () => {
+        data = parsed;
+        render();
+        localStorage.setItem('workout_data_v2', JSON.stringify(data));
+      });
+    } catch {
+      showModal('Import Failed', 'Could not read file. Make sure it\'s a valid workout backup.', null);
+    }
+  };
+  reader.readAsText(file);
+}
 
 // ═════════════════════════════════════════════
 //  SERVICE WORKER REGISTRATION
